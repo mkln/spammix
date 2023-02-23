@@ -1,4 +1,4 @@
-#include "meshed.h"
+#include "meshedmnm.h"
 using namespace std;
 
 
@@ -947,48 +947,48 @@ void MeshedMNM::init_for_mcmc(){
   }
 
   
-  lambda_node.reserve(q); // for lambda & beta
-  gamma_node.reserve(q); // for gamma
+  blg_node.reserve(q); // for lambda & beta
+  //gamma_node.reserve(q); // for gamma
   // start with small epsilon for a few iterations,
   // then find reasonable and then start adapting
-  gamma_hmc_started = arma::zeros<arma::uvec>(q);
-  lambda_hmc_started = arma::zeros<arma::uvec>(q);
+  //gamma_hmc_started = arma::zeros<arma::uvec>(q);
+  blg_hmc_started = arma::zeros<arma::uvec>(q);
   
   for(unsigned int j=0; j<q; j++){
     arma::vec yj_obs = y( ix_by_q_a(j), oneuv * j );
-    arma::vec N_obs = Npop( ix_by_q_a(j), oneuv * j );
+    //arma::vec N_obs = Npop( ix_by_q_a(j), oneuv * j );
     
     // Gamma
     //arma::mat offsets_gamma = arma::zeros(ix_by_q_a(j).n_elem);
     
     arma::mat Z_obs = Z.rows(ix_by_q_a(j));
-    int family_gamma = 2; // binomial family for gamma updates
-    NodeDataB new_gamma_block(yj_obs, N_obs, Z_obs, family_gamma);
+    //int family_gamma = 2; // binomial family for gamma updates
+    //NodeDataB new_gamma_block(yj_obs, N_obs, Z_obs, family_gamma);
     
-    gamma_node.push_back(new_gamma_block);
+    //gamma_node.push_back(new_gamma_block);
     
-    AdaptE new_gamma_hmc_adapt;
-    new_gamma_hmc_adapt.init(.05, pg, w_hmc_srm, w_hmc_nuts);
-    gamma_hmc_adapt.push_back(new_gamma_hmc_adapt);
+    //AdaptE new_gamma_hmc_adapt;
+    //new_gamma_hmc_adapt.init(.05, pg, w_hmc_srm, w_hmc_nuts);
+    //gamma_hmc_adapt.push_back(new_gamma_hmc_adapt);
     
-    gamma_hmc_started(j) = 0;
+    //gamma_hmc_started(j) = 0;
     
     // Lambda & Beta
     arma::mat X_obs = X.rows(ix_by_q_a(j));
     arma::mat W_obs = w.rows(ix_by_q_a(j));
     arma::mat XW = arma::join_horiz(X_obs, W_obs);
     
-    arma::vec not_needed = arma::zeros(yj_obs.n_elem);
-    int family_lambda = 1; // poisson family for lambda-beta updates
-    NodeDataB new_lambda_block(yj_obs, not_needed, XW, family_lambda);
-    lambda_node.push_back(new_lambda_block);
+    //arma::vec not_needed = arma::zeros(yj_obs.n_elem);
+    //int family_lambda = 1; // poisson family for lambda-beta updates
+    NodeDataBLG new_blg_block(yj_obs, XW, Z_obs);
+    blg_node.push_back(new_blg_block);
     
     // *** sampling beta and lambda together so we use p+k here
     arma::uvec subcols = arma::find(Lambda_mask.row(j) == 1);
     int n_lambdas = subcols.n_elem;
-    AdaptE new_lambda_adapt;
-    new_lambda_adapt.init(.05, p+n_lambdas, w_hmc_srm, w_hmc_nuts);
-    lambda_hmc_adapt.push_back(new_lambda_adapt);
+    AdaptE new_blg_adapt;
+    new_blg_adapt.init(.05, p+n_lambdas+pg, w_hmc_srm, w_hmc_nuts);
+    blg_hmc_adapt.push_back(new_blg_adapt);
   }
 
   if(verbose & debug){
@@ -999,7 +999,6 @@ void MeshedMNM::init_for_mcmc(){
   hmc_eps = .025 * arma::ones(n_blocks);
   hmc_eps_started_adapting = arma::zeros<arma::uvec>(n_blocks);
   
-  //Rcpp::Rcout << " Initializing HMC for W -- 1" << endl;
   for(unsigned int i=0; i<n_blocks; i++){
     NodeDataW new_block;
     w_node.push_back(new_block);
@@ -1012,17 +1011,16 @@ void MeshedMNM::init_for_mcmc(){
   
   //Rcpp::Rcout << " Initializing HMC for W -- 2" << endl;
   arma::mat offset_for_w = offsets + XB;
+  arma::mat prob_offset = 1.0/(1.0 + exp(-Zg));
+  
   //#pragma omp parallel for
   for(unsigned int i=0; i<n_blocks; i++){
     int u = block_names(i)-1;
     
-    arma::uvec family_w = arma::ones<arma::uvec>(q); // poisson
-    NodeDataW new_block(Npop, na_mat, //Z.rows(indexing(u)), 
-                            offset_for_w,
-                            indexing(u),
-                            family_w, k);
+    NodeDataW new_block(y, na_mat, offset_for_w,
+                        indexing(u), k);
     
-    new_block.update_mv(offset_for_w, Lambda);
+    new_block.update_mv(offset_for_w, prob_offset, Lambda);
     
     // other fixed pars
     new_block.parents_dim = parents_indexing(u).n_rows;

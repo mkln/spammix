@@ -230,14 +230,12 @@ spammix <- function(y, x, z, coords, k=NULL,
   nr_full <- nrow(coords_blocking)
   
   # DAG
-  if(dd < 4){
+  if(dd == 2){
     graph_time <- system.time({
       parents_children <- mesh_graph_build(coords_blocking %>% dplyr::select(-.data$ix), axis_partition, FALSE, n_threads, debugdag)
       })
   } else {
-    graph_time <- system.time({
-      parents_children <- mesh_graph_build_hypercube(coords_blocking %>% dplyr::select(-.data$ix))
-    })
+    stop("Methods not implemented for spatial domains of dimension d != 2. Check number of columns of 'coords' argument.")
   }
   
   parents                      <- parents_children[["parents"]] 
@@ -342,7 +340,7 @@ spammix <- function(y, x, z, coords, k=NULL,
       beta_Vi <- prior$beta
     }
     if(is.null(prior$gamma)){
-      gamma_Gi <- diag(ncol(z)) * 1/100
+      gamma_Gi <- diag(ncol(z)) * 1/10
     } else {
       gamma_Gi <- prior$gamma
     }

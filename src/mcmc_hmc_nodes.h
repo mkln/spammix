@@ -1,7 +1,7 @@
 #include <RcppArmadillo.h>
 #include "R.h"
 #include <numeric>
-//#include "tmesh_utils.h"
+
 #include "distrib_densities_gradients.h"
 
 class NodeData {
@@ -26,7 +26,7 @@ public:
 
 class NodeDataW : public NodeData {
 public:
-  arma::uvec family; // 0: gaussian, 1: poisson, 2: bernoulli, 3: beta, length q
+  
   int k;
   //arma::vec z;
   
@@ -38,7 +38,7 @@ public:
   
   arma::uvec indexing_target;
   
-  //bool fgrid;
+  arma::mat prob_offset;
   
   //arma::cube Kxxi;
   arma::cube * Kcx;
@@ -59,13 +59,11 @@ public:
   arma::field<arma::cube *> Ri_of_child;//(c) = (*param_data).w_cond_prec(child);
   //arma::field<arma::mat> Kxo_wo;//(c) = Kxxi_xo * w_otherparents;
   arma::field<arma::mat> Kco_wo;//(c) = Kcx_other * w_otherparents;
-  //arma::mat woKoowo;//(c) = w_otherparents.t() * Kxxi_other * w_otherparents;
   
-  void initialize();
-  void update_mv(const arma::mat& new_offset, const arma::mat& Lambda_lmc_in);
-  void update_y(const arma::mat& ynew);
-  
-  // **
+  void update_mv(const arma::mat& new_offset, 
+                 const arma::mat& new_prob_offset,
+                 const arma::mat& Lambda_lmc_in);
+
   
   
   double fwdcond_dmvn(const arma::mat& x, 
@@ -96,66 +94,45 @@ public:
   
   arma::vec compute_dens_and_grad(double& xtarget, const arma::mat& x);
   arma::mat compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad, const arma::mat& x);
-  arma::mat compute_dens_grad_neghess2(double& xtarget, arma::vec& xgrad, const arma::mat& x);
+  //arma::mat compute_dens_grad_neghess2(double& xtarget, arma::vec& xgrad, const arma::mat& x);
   
   NodeDataW(const arma::mat& y_all, //const arma::mat& Z_in,
             const arma::umat& na_mat_all, const arma::mat& offset_all, 
             const arma::uvec& indexing_target,
-            const arma::uvec& outtype, int k);
+            int k);
   
   NodeDataW();
   
 };
 
 
-class NodeDataB : public NodeData {
+class NodeDataBLG : public NodeData{
 public:
-  int family; // for beta
+  int n, p, pg;
   
-  arma::mat X; //for updates of beta
-  //double tausq; // reg variance
+  arma::mat X, Z;
+  arma::mat XZm; //XtX, ZtZ, XtZ;
   
-  // gaussian
-  arma::mat XtX;
-  arma::vec Xres;
+  arma::vec beta, gamma;
+  arma::vec lambda, prob;
   
-  // binom
-  arma::vec ones;
-  
-  // beta distrib outcomes
-  //arma::uvec ystar;
-  arma::vec nbin;
-  
-  // for beta updates in non-Gaussian y models
   arma::vec mstar;
   arma::mat Vw_i;
   
-  // mass matrix
-  arma::mat Sig;
-  arma::mat Sig_i_tchol;
-  arma::mat M;
-  arma::mat Michol;
-  
-  void initialize();
-  void update_mv(const arma::vec& new_offset, 
-                 const arma::vec& Smu_tot, const arma::mat& Sigi_tot);
-  
-  void update_y(const arma::vec& ynew); 
-  void update_nbin(const arma::vec& Npop); // for binomial n
-  
+  void update_mv(const arma::vec& Smu_tot, const arma::mat& Sigi_tot);
+  void update_X(const arma::mat& X_in);
   void set_XtDX(const arma::vec& x);
   
-  NodeDataB(const arma::vec& y_in, const arma::vec& n_in, 
-            const arma::mat& X_in, int family_in);
-  NodeDataB();
+  NodeDataBLG(const arma::vec& y_in, const arma::mat& X_in, const arma::mat Z_in);
+  NodeDataBLG();
   
   double logfullcondit(const arma::vec& x);
-  
   arma::vec gradient_logfullcondit(const arma::vec& x);
   arma::mat neghess_logfullcondit(const arma::vec& x);
+  
+  // used in sampling
   arma::vec compute_dens_and_grad(double& xtarget, const arma::mat& x);
   arma::mat compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad, const arma::mat& x);
-  //using MVDistParams::MVDistParams;
-  //using MVDistParams::logfullcondit;
-  //using MVDistParams::gradient_logfullcondit;
+  
 };
+

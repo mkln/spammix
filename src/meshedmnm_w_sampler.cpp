@@ -1,4 +1,4 @@
-#include "meshed.h"
+#include "meshedmnm.h"
 
 using namespace std;
 
@@ -11,62 +11,6 @@ void MeshedMNM::deal_with_w(MeshDataLMC& data){
 
   nongaussian_w(data);
 }
-/*
-void MeshedMNM::update_block_w_cache(int u, MeshDataLMC& data){
-  // 
-  arma::mat Sigi_tot = build_block_diagonal_ptr(data.w_cond_prec_ptr.at(u));
-  arma::mat Smu_tot = arma::zeros(k*indexing(u).n_elem, 1); // replace with fill(0)
-  
-  for(unsigned int c=0; c<children(u).n_elem; c++){
-    int child = children(u)(c);
-    arma::cube AK_u = cube_cols_ptr(data.w_cond_mean_K_ptr.at(child), u_is_which_col_f(u)(c)(0));
-    AKuT_x_R_ptr(data.AK_uP(u)(c), AK_u, data.w_cond_prec_ptr.at(child)); 
-    add_AK_AKu_multiply_(Sigi_tot, data.AK_uP(u)(c), AK_u);
-  }
-
-  arma::mat u_tau_inv = arma::zeros(indexing_obs(u).n_elem, q);
-  arma::mat ytilde = arma::zeros(indexing_obs(u).n_elem, q);
-  
-  for(unsigned int j=0; j<q; j++){
-    for(unsigned int ix=0; ix<indexing_obs(u).n_elem; ix++){
-      if(na_mat(indexing_obs(u)(ix), j) == 1){
-        u_tau_inv(ix, j) = pow(tausq_inv(j), .5);
-        ytilde(ix, j) = (y(indexing_obs(u)(ix), j) - XB(indexing_obs(u)(ix), j))*u_tau_inv(ix, j);
-      }
-    }
-    // dont erase:
-    //Sigi_tot += arma::kron( arma::trans(Lambda.row(j)) * Lambda.row(j), arma::diagmat(u_tau_inv%u_tau_inv));
-    arma::mat LjtLj = arma::trans(Lambda.row(j)) * Lambda.row(j);
-    arma::vec u_tausq_inv = u_tau_inv.col(j) % u_tau_inv.col(j);
-    add_LtLxD(Sigi_tot, LjtLj, u_tausq_inv);
-    
-    Smu_tot += arma::vectorise(arma::diagmat(u_tau_inv.col(j)) * ytilde.col(j) * Lambda.row(j));
-  }
-
-  data.Smu_start(u) = Smu_tot;
-  //data.Sigi_chol(u) = Sigi_tot;
-  data.Sigi_chol(u) = arma::inv(arma::trimatl(arma::chol( arma::symmatu( Sigi_tot ), "lower")));
-
-}
-
-void MeshedMNM::refresh_w_cache(MeshDataLMC& data){
-  if(verbose & debug){
-    Rcpp::Rcout << "[refresh_w_cache] \n";
-  }
-  start_overall = std::chrono::steady_clock::now();
-  for(unsigned int i=0; i<n_blocks; i++){
-    int u=block_names(i)-1;
-    update_block_w_cache(u, data);
-  }
-  
-  if(verbose & debug){
-    end_overall = std::chrono::steady_clock::now();
-    Rcpp::Rcout << "[refresh_w_cache] "
-                << std::chrono::duration_cast<std::chrono::microseconds>(end_overall - start_overall).count()
-                << "us. " << "\n";
-  }
-}
-*/
 
 void MeshedMNM::nongaussian_w(MeshDataLMC& data){
   if(verbose & debug){
@@ -74,12 +18,12 @@ void MeshedMNM::nongaussian_w(MeshDataLMC& data){
   }
   
   start_overall = std::chrono::steady_clock::now();
-  //double part1 = 0;
-  //double part2 = 0;
+  
   
   int mala_timer = 0;
   
   arma::mat offset_for_w = offsets + XB;
+  arma::mat prob_offset = 1.0/(1.0 + exp(-Zg));
   
   for(int g=0; g<n_gibbs_groups; g++){
 #ifdef _OPENMP
@@ -92,7 +36,7 @@ void MeshedMNM::nongaussian_w(MeshDataLMC& data){
         
         start = std::chrono::steady_clock::now();
         //Rcpp::Rcout << "u :  " << u << endl;
-        w_node.at(u).update_mv(offset_for_w, Lambda);
+        w_node.at(u).update_mv(offset_for_w, prob_offset, Lambda);
         
         if(parents(u).n_elem > 0){
           //w_node.at(u).Kxxi = (*data.w_cond_prec_parents_ptr.at(u));
@@ -152,7 +96,6 @@ void MeshedMNM::nongaussian_w(MeshDataLMC& data){
           
         arma::mat w_current = w.rows(indexing(u));
         
-        w_node.at(u).update_y(Npop);
         
         // adapting eps
         hmc_eps_adapt.at(u).step();
@@ -293,7 +236,7 @@ void MeshedMNM::predicty(){
   }
   Rcpp::RNGScope scope;
   for(unsigned int j=0; j<q; j++){
-    yhat.col(j) = vrbinom(Npop.col(j), 1.0/(1.0+exp(-Zg.col(j))));
+    yhat.col(j) = vrpois(exp(XB.col(j) + LambdaHw.col(j))/(1.0+exp(-Zg.col(j))));
   }
   if(verbose & debug){
     Rcpp::Rcout << "[predicty] end" << endl;

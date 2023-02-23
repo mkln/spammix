@@ -74,46 +74,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// gneiting2002_h
-double gneiting2002_h(const double& h, const double& u, const double& a, const double& c, const double& beta);
-RcppExport SEXP _spammix_gneiting2002_h(SEXP hSEXP, SEXP uSEXP, SEXP aSEXP, SEXP cSEXP, SEXP betaSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const double& >::type h(hSEXP);
-    Rcpp::traits::input_parameter< const double& >::type u(uSEXP);
-    Rcpp::traits::input_parameter< const double& >::type a(aSEXP);
-    Rcpp::traits::input_parameter< const double& >::type c(cSEXP);
-    Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
-    rcpp_result_gen = Rcpp::wrap(gneiting2002_h(h, u, a, c, beta));
-    return rcpp_result_gen;
-END_RCPP
-}
-// kernp_xx
-arma::mat kernp_xx(const arma::mat& Xcoords, const arma::vec& kweights);
-RcppExport SEXP _spammix_kernp_xx(SEXP XcoordsSEXP, SEXP kweightsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xcoords(XcoordsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type kweights(kweightsSEXP);
-    rcpp_result_gen = Rcpp::wrap(kernp_xx(Xcoords, kweights));
-    return rcpp_result_gen;
-END_RCPP
-}
-// kernp_xy
-arma::mat kernp_xy(const arma::mat& Xcoords, const arma::mat& Ycoords, const arma::vec& kweights);
-RcppExport SEXP _spammix_kernp_xy(SEXP XcoordsSEXP, SEXP YcoordsSEXP, SEXP kweightsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xcoords(XcoordsSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Ycoords(YcoordsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type kweights(kweightsSEXP);
-    rcpp_result_gen = Rcpp::wrap(kernp_xy(Xcoords, Ycoords, kweights));
-    return rcpp_result_gen;
-END_RCPP
-}
 // blanket
 arma::field<arma::uvec> blanket(const arma::field<arma::uvec>& parents, const arma::field<arma::uvec>& children, const arma::uvec& names, const arma::uvec& block_ct_obs);
 RcppExport SEXP _spammix_blanket(SEXP parentsSEXP, SEXP childrenSEXP, SEXP namesSEXP, SEXP block_ct_obsSEXP) {
@@ -380,9 +340,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_spammix_Cov_matern2", (DL_FUNC) &_spammix_Cov_matern2, 5},
     {"_spammix_Cov_matern_h", (DL_FUNC) &_spammix_Cov_matern_h, 5},
     {"_spammix_Cov_powexp_h", (DL_FUNC) &_spammix_Cov_powexp_h, 5},
-    {"_spammix_gneiting2002_h", (DL_FUNC) &_spammix_gneiting2002_h, 5},
-    {"_spammix_kernp_xx", (DL_FUNC) &_spammix_kernp_xx, 2},
-    {"_spammix_kernp_xy", (DL_FUNC) &_spammix_kernp_xy, 3},
     {"_spammix_blanket", (DL_FUNC) &_spammix_blanket, 4},
     {"_spammix_coloring", (DL_FUNC) &_spammix_coloring, 3},
     {"_spammix_kthresholdscp", (DL_FUNC) &_spammix_kthresholdscp, 2},

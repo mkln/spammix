@@ -2,9 +2,6 @@
 #include "R.h"
 #include <numeric>
 
-//#include "../distributions/mvnormal.h"
-
-//#include "distparams.h"
 #include "mcmc_hmc_nodes.h"
 #include "mcmc_hmc_adapt.h"
 
@@ -202,7 +199,7 @@ inline arma::mat simpa_cpp(arma::mat current_q,
                                T& postparams,
                                AdaptE& adaptparams, 
                                const arma::mat& rnorm_mat,
-                               const double& runifvar, const double& runifadapt, 
+                               const double& runifvar, const double& runifadapt,
                                bool adapt=true,
                                bool debug=false){
   

@@ -179,105 +179,6 @@ void powerexp_inplace(arma::mat& res,
   }
 }
 
-// gneiting 2002 eq. 15 with a,c,beta left unknown
-void gneiting2002_inplace(arma::mat& res, const arma::mat& coords,
-                       const arma::uvec& ix, const arma::uvec& iy, 
-                       const double& a, const double& c, const double& beta, const double& sigmasq, const double& nu, bool same){
-  // NOT reparametrized here
-  //arma::mat res = arma::zeros(ix.n_rows, iy.n_rows);
-  arma::uvec timecol = arma::ones<arma::uvec>(1) * 2;
-  if(same){
-    for(unsigned int i=0; i<ix.n_rows; i++){
-      arma::rowvec cri = coords.row(ix(i)).subvec(0, 1); //x.row(i);
-      double ti = coords(ix(i), 2);
-      for(unsigned int j=i; j<iy.n_rows; j++){
-        double ch = c * arma::norm(cri - coords.submat(iy(j), 0, iy(j), 1)); //y.row(j);
-        double u = abs(coords(iy(j), 2) - ti);
-        double umod = 1.0 / (a * u + 1.0);
-        double chu = ch * pow(umod, beta/2.0);
-        
-        if(ch > 0.0){
-          if(nu == 0.5){
-            res(i, j) = sigmasq * umod * exp(-chu);
-          } else {
-            if(nu == 1.5){
-              res(i, j) = sigmasq * umod * exp(-chu) * (1 + chu);
-            } else {
-              if(nu == 2.5){
-                res(i, j) = sigmasq * umod * (1 + chu + chu*chu / 3.0) * exp(-chu);
-              }
-            }
-          }
-        } else {
-          res(i, j) = sigmasq * umod;
-        }
-      }
-    }
-    res = arma::symmatu(res);
-  } else {
-    for(unsigned int i=0; i<ix.n_rows; i++){
-      arma::rowvec cri = coords.row(ix(i)).subvec(0, 1); //x.row(i);
-      double ti = coords(ix(i), 2);
-      for(unsigned int j=0; j<iy.n_rows; j++){
-        double ch = c * arma::norm(cri - coords.submat(iy(j), 0, iy(j), 1)); //y.row(j);
-        double u = abs(coords(iy(j), 2) - ti);
-        double umod = 1.0 / (a * u + 1.0);
-        double chu = ch * pow(umod, beta/2.0);
-        
-        if(ch > 0.0){
-          if(nu == 0.5){
-            res(i, j) = sigmasq * umod * exp(-chu);
-          } else {
-            if(nu == 1.5){
-              res(i, j) = sigmasq * umod * exp(-chu) * (1 + chu);
-            } else {
-              if(nu == 2.5){
-                res(i, j) = sigmasq * umod * (1 + chu + chu*chu / 3.0) * exp(-chu);
-              }
-            }
-          }
-        } else {
-          res(i, j) = sigmasq * umod;
-        }
-      }
-    }
-  }
-}
-
-
-void kernelp_inplace(arma::mat& res,
-             const arma::mat& Xcoords, const arma::uvec& ind1, const arma::uvec& ind2, 
-             const arma::vec& theta, bool same){
-  
-  double sigmasq = theta(theta.n_elem-1);
-  arma::vec kweights = theta.subvec(0, theta.n_elem-2);
-  
-  if(same){
-    for(unsigned int i=0; i<ind1.n_elem; i++){
-      arma::rowvec cri = Xcoords.row(ind1(i));
-      for(unsigned int j=i; j<ind2.n_elem; j++){
-        //arma::rowvec deltasq = kweights.t() % (cri - Xcoords.row(ind2(j)));
-        //double weighted = sqrt(arma::accu(deltasq % deltasq));
-        arma::rowvec deltasq = cri - Xcoords.row(ind2(j));
-        double weighted = (arma::accu(kweights.t() % deltasq % deltasq));
-        res(i, j) = sigmasq * exp(-weighted) + (weighted == 0? 1e-6 : 0);
-      }
-    }
-    res = arma::symmatu(res);
-  } else {
-    //int cc = 0;
-    for(unsigned int i=0; i<ind1.n_elem; i++){
-      arma::rowvec cri = Xcoords.row(ind1(i));
-      for(unsigned int j=0; j<ind2.n_elem; j++){
-        //arma::rowvec deltasq = kweights.t() % (cri - Xcoords.row(ind2(j)));
-        //double weighted = sqrt(arma::accu(deltasq % deltasq));
-        arma::rowvec deltasq = cri - Xcoords.row(ind2(j));
-        double weighted = (arma::accu(kweights.t() % deltasq % deltasq));
-        res(i, j) = sigmasq * exp(-weighted) + (weighted == 0? 1e-6 : 0);
-      }
-    }
-  }
-}
 
 arma::mat Correlationf(
     const arma::mat& coords,
@@ -326,23 +227,8 @@ arma::mat Correlationf(
       
       return res;
     }
-  } else if (coords.n_cols == 3){
-    // theta 0: temporal decay, 
-    // theta 1: spatial decay,
-    // theta 2: separability
-    // theta 3: sigmasq
-    double sigmasq = 1.0;
-    if(matern.using_ps){
-      sigmasq = theta(3);
-    }
-    double nu = matern.twonu/2.0;
-    gneiting2002_inplace(res, coords, ix, iy, theta(0), theta(1), theta(2), sigmasq, nu, same);
-    return res;
-  } else {
-    // p exposures, p+1 params
-    kernelp_inplace(res, coords, ix, iy, theta, same);
-    return res;
-  }
+  } else { Rcpp::stop("Only implemented for spatial domains of dimension 2. 'coords' does not have 2 columns."); }
+    
 }
 
 
@@ -384,14 +270,6 @@ void inv_det_via_chol(arma::mat& xinv, double& ldet, const arma::mat& x){
   xinv = xchol.t() * xchol;
 }
 
-void inv_det_via_qr(arma::mat& xinv, double& ldet, const arma::mat& x){
-  arma::mat Q;
-  arma::mat R;
-  arma::qr(Q, R, x);
-  
-  xinv = arma::symmatu(arma::inv(arma::trimatu(R)) * Q.t());
-  ldet = - 0.5 * arma::accu(log(abs(R.diag())));
-}
 
 double CviaKron_HRi_(arma::cube& H, arma::cube& Ri, arma::cube& Kppi, 
                      const arma::cube& Cxx,

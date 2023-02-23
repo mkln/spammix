@@ -1,5 +1,3 @@
-
-
 #include "covariance_lmc.h"
 #include "utils_field_v_concatm.h"
 #include "utils_parametrize.h"

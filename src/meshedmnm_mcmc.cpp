@@ -1,9 +1,7 @@
-
-
 #include "utils_lmc.h"
 #include "utils_interrupt_handler.h"
 #include "utils_parametrize.h"
-#include "meshed.h"
+#include "meshedmnm.h"
 
 //[[Rcpp::export]]
 Rcpp::List meshed_mcmc(
@@ -241,16 +239,16 @@ Rcpp::List meshed_mcmc(
         }
       }
     
-      if(sample_lambda+sample_beta){
+      if(sample_lambda+sample_beta+sample_gamma){
         start = std::chrono::steady_clock::now();
-        msp.deal_with_BetaLambda(sample_beta, sample_lambda); // true = sample
+        msp.deal_with_BetaLambdaGamma(sample_beta, sample_lambda, sample_gamma); // true = sample
         end = std::chrono::steady_clock::now();
         if(verbose_mcmc & verbose){
           Rcpp::Rcout << "[BetaLambda] " 
                       << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us.\n"; 
         }
       }
-      
+      /*
       if(sample_gamma){
         start = std::chrono::steady_clock::now();
         msp.deal_with_gamma(); // true = sample
@@ -259,17 +257,9 @@ Rcpp::List meshed_mcmc(
           Rcpp::Rcout << "[gamma] " 
                       << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us.\n"; 
         }
-      }
+      }*/
 
-      if(sample_N){
-        start = std::chrono::steady_clock::now();
-        msp.deal_with_N(); // true = sample
-        end = std::chrono::steady_clock::now();
-        if(verbose_mcmc & verbose){
-          Rcpp::Rcout << "[N] " 
-                      << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us.\n"; 
-        }
-      }
+
       
       if(sample_beta || sample_gamma || sample_w || sample_lambda){
         start = std::chrono::steady_clock::now();
@@ -310,6 +300,16 @@ Rcpp::List meshed_mcmc(
           
           Rcpp::RNGScope scope;
           msp.predicty();
+          if(sample_N){
+            start = std::chrono::steady_clock::now();
+            msp.deal_with_N(); // true = sample
+            end = std::chrono::steady_clock::now();
+            if(verbose_mcmc & verbose){
+              Rcpp::Rcout << "[N] " 
+                          << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us.\n"; 
+            }
+          }
+          
           yhat_mcmc[iname] = Rcpp::wrap(msp.yhat);
           
           if(!low_mem){

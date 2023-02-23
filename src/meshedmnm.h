@@ -12,7 +12,6 @@
 #include "mcmc_hmc_sample.h"
 #include "utils_caching.h"
 #include "utils_lmc.h"
-#include "utils_others.h"
 #include "covariance_lmc.h"
 
 class MeshedMNM {
@@ -177,11 +176,11 @@ public:
   void accept_make_change();
   
   // using?
-  int lambda_mcmc_counter;
-  int n_lambda_pars;
-  arma::uvec lambda_sampling;
-  arma::mat lambda_unif_bounds; // 1x2: lower and upper for off-diagonal
-  RAMAdapt lambda_adapt;
+  //int lambda_mcmc_counter;
+  //int n_lambda_pars;
+  //arma::uvec lambda_sampling;
+  //arma::mat lambda_unif_bounds; // 1x2: lower and upper for off-diagonal
+  //RAMAdapt lambda_adapt;
   
   //void update_block_w_cache(int, MeshDataLMC& data);
   //void refresh_w_cache(MeshDataLMC& data);
@@ -205,20 +204,20 @@ public:
   arma::uvec hmc_eps_started_adapting;
 
   // gamma
-  void deal_with_gamma();
-  void sample_hmc_gamma();
+  //void deal_with_gamma();
+  //void sample_hmc_gamma();
   //void tester_beta(bool sample=true);
-  std::vector<NodeDataB> gamma_node; // std::vector
-  std::vector<AdaptE> gamma_hmc_adapt; // std::vector
-  arma::uvec gamma_hmc_started;
+  //std::vector<NodeDataB> gamma_node; // std::vector
+  //std::vector<AdaptE> gamma_hmc_adapt; // std::vector
+  //arma::uvec gamma_hmc_started;
   
   // beta and lambda
-  void deal_with_BetaLambda(bool sample_beta, bool sample_lambda);
-  void sample_hmc_BetaLambda(bool sample_beta, bool sample_lambda);
+  void deal_with_BetaLambdaGamma(bool sample_beta, bool sample_lambda, bool sample_gamma);
+  void sample_hmc_BetaLambdaGamma(bool sample_beta, bool sample_lambda, bool sample_gamma);
 
-  std::vector<NodeDataB> lambda_node; // std::vector
-  std::vector<AdaptE> lambda_hmc_adapt; // std::vector
-  arma::uvec lambda_hmc_started;
+  std::vector<NodeDataBLG> blg_node; // std::vector
+  std::vector<AdaptE> blg_hmc_adapt; // std::vector
+  arma::uvec blg_hmc_started;
   
   // Predictions for W and Y
   void predict();

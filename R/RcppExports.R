@@ -17,18 +17,6 @@ Cov_powexp_h <- function(h, sigmasq, phi, nu, tausq) {
     .Call(`_spammix_Cov_powexp_h`, h, sigmasq, phi, nu, tausq)
 }
 
-gneiting2002_h <- function(h, u, a, c, beta) {
-    .Call(`_spammix_gneiting2002_h`, h, u, a, c, beta)
-}
-
-kernp_xx <- function(Xcoords, kweights) {
-    .Call(`_spammix_kernp_xx`, Xcoords, kweights)
-}
-
-kernp_xy <- function(Xcoords, Ycoords, kweights) {
-    .Call(`_spammix_kernp_xy`, Xcoords, Ycoords, kweights)
-}
-
 blanket <- function(parents, children, names, block_ct_obs) {
     .Call(`_spammix_blanket`, parents, children, names, block_ct_obs)
 }

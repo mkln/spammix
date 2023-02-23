@@ -20,7 +20,7 @@ NodeDataW::NodeDataW(){
 NodeDataW::NodeDataW(const arma::mat& y_all, //const arma::mat& Z_in,
                                     const arma::umat& na_mat_all, const arma::mat& offset_all, 
                                     const arma::uvec& indexing_target_in,
-                                    const arma::uvec& outtype, int k){
+                                    int k){
   
   indexing_target = indexing_target_in;
   y = y_all.rows(indexing_target);
@@ -29,24 +29,13 @@ NodeDataW::NodeDataW(const arma::mat& y_all, //const arma::mat& Z_in,
   
   // ----
   
-  family = outtype; //= arma::vectorise(familymat);
-  
-  
   n = y.n_rows;
-  //z = arma::ones(n); //Z_in.col(0);
-  
-  //fgrid = fgrid_in;
-}
-
-void NodeDataW::initialize(){
   
 }
 
-void NodeDataW::update_y(const arma::mat& y_all){
-  y = y_all.rows(indexing_target);
-}
 
 void NodeDataW::update_mv(const arma::mat& offset_all, 
+                          const arma::mat& prob_offset_all,
                           const arma::mat& Lambda_lmc_in){
   // arma::mat tausqmat = arma::zeros<arma::umat>(arma::size(new_offset));
   // for(unsigned int i=0; i<tausqmat.n_cols; i++){
@@ -56,6 +45,7 @@ void NodeDataW::update_mv(const arma::mat& offset_all,
   Lambda_lmc = Lambda_lmc_in;
   //tausq = tausq_in;
   offset = offset_all.rows(indexing_target);
+  prob_offset = prob_offset_all.rows(indexing_target);
 }
 
 
@@ -159,12 +149,9 @@ void NodeDataW::neghess_fwdcond_dmvn(arma::mat& result, const arma::mat& x){
   int nr = (*Ri).n_rows;
   int nc = (*Ri).n_cols;
   
-  //Rcpp::Rcout << "neghess_fwdcond_dmvn " << arma::size((*Ri)) << "\n";
-  //arma::mat result = arma::zeros(nr * k, nc * k);
   for(int j=0; j<k; j++){
     result.submat(nr*j, nc*j, (j+1)*nr-1, (j+1)*nc-1) += (*Ri).slice(j);
   }
-  //return result;
 }
 
 void NodeDataW::neghess_bwdcond_dmvn(arma::mat& result,
@@ -173,8 +160,6 @@ void NodeDataW::neghess_bwdcond_dmvn(arma::mat& result,
   int k = (*Ri_of_child(c)).n_slices;
   int nr = Kcx_x(c).n_cols; //(*Ri_of_child).n_rows;
   int nc = Kcx_x(c).n_cols; //(*Ri_of_child).n_cols;
-  
-  //Rcpp::Rcout << "neghess_bwdcond_dmvn " << arma::size(Kcx_x) << " " << arma::size((*Ri_of_child)) << "\n";
   
   //arma::mat result = arma::zeros(nr * k, nc * k);
   for(int j=0; j<k; j++){
@@ -228,7 +213,7 @@ arma::vec NodeDataW::compute_dens_and_grad(double& xtarget, const arma::mat& x){
       if(na_mat(i, j) > 0){
         
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        arma::vec gradloc = get_likdens_likgrad(loglike, y(i,j), offset(i, j), xij, family(j));
+        double gradloc = poisnmix_logdens_loggrad(loglike, y(i,j), offset(i, j), prob_offset(i, j), xij); 
 
         arma::mat LambdaHt = Lambda_lmc.row(j).t();
         arma::vec Lgrad = LambdaHt * gradloc;
@@ -273,7 +258,7 @@ double NodeDataW::logfullcondit(const arma::mat& x){
       //Rcpp::Rcout << i << " - " << j << endl;
       if(na_mat(i, j) > 0){
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        arma::vec gradloc = get_likdens_likgrad(loglike, y(i,j), offset(i, j), xij, family(j), false);
+        double notused = poisnmix_logdens_loggrad(loglike, y(i,j), offset(i, j), prob_offset(i,j), xij, false);
       }
     }
   }
@@ -298,7 +283,7 @@ double NodeDataW::loglike(const arma::mat& x){
       //Rcpp::Rcout << i << " - " << j << endl;
       if(na_mat(i, j) > 0){
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        arma::vec gradloc = get_likdens_likgrad(loglike, y(i,j), offset(i, j), xij, family(j), false);
+        double notused = poisnmix_logdens_loggrad(loglike, y(i,j), offset(i, j), prob_offset(i, j), xij, false);
       }
     }
   }
@@ -324,7 +309,7 @@ arma::vec NodeDataW::gradient_logfullcondit(const arma::mat& x){
         double loglike = 0;
         arma::mat LambdaHt = Lambda_lmc.row(j).t();
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        arma::vec gradloc = LambdaHt * get_likdens_likgrad(loglike, y(i,j), offset(i, j), xij, family(j));
+        arma::vec gradloc = LambdaHt * poisnmix_logdens_loggrad(loglike, y(i,j), offset(i, j), prob_offset(i, j), xij);
         
         for(int s=0; s<k; s++){
           grad_loglike(s * indxsize + i) += gradloc(s);   
@@ -350,8 +335,6 @@ arma::mat NodeDataW::compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad
   int q = y.n_cols;
   int k = x.n_cols;
   
-  //Rcpp::Rcout << "compute_dens_grad_neghess start " << endl;
-  
   arma::vec grad_loglike = arma::zeros(x.n_rows * x.n_cols);
   arma::mat neghess_logtarg = arma::zeros(x.n_rows * x.n_cols,
                                           x.n_rows * x.n_cols);
@@ -370,7 +353,7 @@ arma::mat NodeDataW::compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad
     for(int j=0; j<q; j++){
       if(na_mat(i, j) > 0){
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        mult(j) = get_mult(y(i,j), 1, offset(i,j), xij, family(j));
+        mult(j) = get_mult(y(i,j), offset(i,j),  prob_offset(i, j), xij);
       }
     }
     
@@ -378,7 +361,7 @@ arma::mat NodeDataW::compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad
       if(na_mat(i, j) > 0){
         
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        arma::vec gradloc = get_likdens_likgrad(loglike, y(i,j), offset(i, j), xij, family(j));
+        double gradloc = poisnmix_logdens_loggrad(loglike, y(i,j), offset(i, j), prob_offset(i, j), xij);
 
         arma::mat LambdaHt = Lambda_lmc.row(j).t();
         arma::vec Lgrad = LambdaHt * gradloc;
@@ -448,7 +431,7 @@ arma::mat NodeDataW::neghess_logfullcondit(const arma::mat& x){
     for(unsigned int j=0; j<y.n_cols; j++){
       if(na_mat(i, j) > 0){
         double xij = arma::conv_to<double>::from(Lambda_lmc.row(j) * wloc.t());
-        double mult = get_mult(y(i,j), 1, offset(i,j), xij, family(j));
+        double mult = get_mult(y(i,j), offset(i,j), prob_offset(i,j), xij);
         
         arma::mat LambdaHt = Lambda_lmc.row(j).t() * mult;
         arma::mat neghessloc = LambdaHt * LambdaHt.t();
@@ -496,148 +479,109 @@ arma::mat NodeDataW::neghess_prior(const arma::mat& x){
 }
 
 
-NodeDataB::NodeDataB(){
+NodeDataBLG::NodeDataBLG(){
   n=-1;
 }
 
-NodeDataB::NodeDataB(const arma::vec& y_in, const arma::vec& nbin_in, 
-                                          const arma::mat& X_in, int family_in){
-  family = family_in;
-  n = y_in.n_elem;
+NodeDataBLG::NodeDataBLG(const arma::vec& y_in, const arma::mat& X_in, const arma::mat Z_in){
   y = y_in;
-  nbin = nbin_in;
+  n = y.n_elem;
   X = X_in;
-  //which = "beta";
+  Z = Z_in;
+  p = X.n_cols;
+  pg = Z.n_cols;
   
-  if(family != 0){ // gaussian
-    ones = arma::ones(n);
-  }
-  
-  /*if(family == 2){ // binomial
-    ystar = y;
-    for(unsigned int i=0; i<y.n_elem; i++){
-      if(y(i) = 0){
-        ystar(i) = 1;
-      } else {
-        ystar(i) = 0;
-      }
-    }
-  }*/
-  
-  
-  initialize();
 }
 
-void NodeDataB::initialize(){
-  mstar = arma::zeros(X.n_cols);
-  Vw_i = arma::eye(X.n_cols, X.n_cols);
-  XtX = X.t() * X;
-}
-
-void NodeDataB::update_mv(const arma::vec& new_offset,const arma::vec& Smu_tot, const arma::mat& Sigi_tot){
-  //tausq = tausq_in;
-  offset = new_offset;
-  
+void NodeDataBLG::update_mv(const arma::vec& Smu_tot, const arma::mat& Sigi_tot){
   mstar = Smu_tot;
   Vw_i = Sigi_tot;
 }
-
-void NodeDataB::update_y(const arma::vec& ynew){
-  y = ynew;
+void NodeDataBLG::update_X(const arma::mat& X_in){
+  X = X_in;
+  p = X.n_cols;
 }
-
-void NodeDataB::update_nbin(const arma::vec& npop){
-  nbin = npop;
-}
-
-
-
 // log posterior 
-double NodeDataB::logfullcondit(const arma::vec& x){
-  //Rcpp::Rcout << "lik " << endl;
-  //std::chrono::steady_clock::time_point start;
-  //std::chrono::steady_clock::time_point end;
-  //start = std::chrono::steady_clock::now();
-  
+double NodeDataBLG::logfullcondit(const arma::vec& x){
   double loglike = 0;
   
-  if(family==1){
-    loglike = arma::conv_to<double>::from( y.t() * X * x - ones.t() * exp(offset + X * x) );
-  } else if (family==2) {
-    // x=beta
-    arma::vec sigmoid = 1.0/(1.0 + exp(-offset - X * x ));
-    // y and y1 are both zero when missing data
-    loglike = arma::conv_to<double>::from( 
-      y.t() * log(sigmoid + 1e-6) + (nbin - y).t() * log(1-sigmoid + 1e-6)
-    );
-    if(std::isnan(loglike)){
-      loglike = -arma::datum::inf;
-      //Rcpp::Rcout << "loglike new: " << loglike << "\n";
-    }
-  } 
+  // x is a vector of size p+pg storing beta and gamma 
+  // here, beta includes the loadings of the latent factors
+  beta = x.head(p);
+  gamma = x.tail(pg);
+  
+  //Rcpp::Rcout << arma::size(X) << " " << arma::size(Z) << " " << arma::size(beta) << " " << arma::size(gamma) << endl;
+  
+  lambda = exp(X * beta);
+  prob = 1.0 / ( 1 + exp(- Z * gamma));
+  
+  loglike = 0;
+  for(int i=0; i<n; i++){
+    loglike += y(i) * (log(lambda(i)) + log(prob(i))) - lambda(i) * prob(i);
+  }
+  
   double logprior = arma::conv_to<double>::from(
     x.t() * mstar - .5 * x.t() * Vw_i * x);
+  
+  //Rcpp::Rcout << "ll: " << loglike << " lp: " << logprior << endl;
+  //Rcpp::Rcout << "X head \n" << X.head_rows(5) << endl; 
   
   return ( loglike + logprior );
   
 }
 
 // Gradient of the log posterior
-arma::vec NodeDataB::gradient_logfullcondit(const arma::vec& x){
-  //Rcpp::Rcout << "grad " << endl;
-  //std::chrono::steady_clock::time_point start;
-  //std::chrono::steady_clock::time_point end;
-  //start = std::chrono::steady_clock::now();
-  
+arma::vec NodeDataBLG::gradient_logfullcondit(const arma::vec& x){
   arma::vec grad_loglike = arma::zeros(x.n_elem);
   
-  if(family == 1){
-    arma::vec Xx = X * x;
-    arma::vec muvec = arma::zeros(offset.n_elem);
-    for(unsigned int i=0; i<muvec.n_elem; i++){
-      double logmu = offset(i) + Xx(i);
-      if(logmu > TOL_LOG_HIGH){
-        logmu = TOL_LOG_HIGH;
-      }
-      muvec(i) = exp(logmu);
-    }
-    grad_loglike = X.t() * (y - muvec);
-  } else if(family == 2){
-    arma::vec sigmoid = 1.0/(1.0 + exp(-offset - X * x));
-    grad_loglike = X.t() * (y - nbin % 
-      sigmoid );
-  } 
+  arma::vec y_lambdaprob = y - lambda % prob;
+  grad_loglike.head(p) = X.t() * y_lambdaprob;
+  grad_loglike.tail(pg) = Z.t() * ( y_lambdaprob % (1 - prob) );
   
   arma::vec grad_logprior = mstar - Vw_i * x;
-  //end = std::chrono::steady_clock::now();
-  //grad_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+  //Rcpp::Rcout << "gll: " << grad_loglike.t() << " glp: " << grad_logprior.t() << endl;
   return grad_loglike + grad_logprior;
-
 }
 
-void NodeDataB::set_XtDX(const arma::vec& x){
-  arma::vec Xb = X*x;
-  arma::vec mult = arma::zeros(X.n_rows);
-  arma::mat Xresult = X;
-  for(unsigned int i=0; i<X.n_rows; i++){
-    mult(i) = get_mult(y(i), nbin(i), offset(i), Xb(i), family);
-    Xresult.row(i) = X.row(i) * mult(i);
+void NodeDataBLG::set_XtDX(const arma::vec& x){
+  arma::vec p1mp = prob % (1 - prob);
+  arma::vec mult_b2 = lambda % prob;
+  arma::vec mult_bg = lambda % p1mp;
+  arma::vec mult_g2 = p1mp % (y - lambda % (2 * prob - 1));
+  
+  XZm = arma::zeros(p + pg, p + pg);
+  
+  arma::mat Xtemp_b = X;
+  arma::mat Xtemp_bg = X;
+  arma::mat Ztemp_g = Z;
+  for(unsigned int i=0; i<n; i++){
+    Xtemp_b.row(i) *= mult_b2(i);
+    Xtemp_bg.row(i) *= mult_bg(i);
+    Ztemp_g.row(i) *= mult_g2(i);
   }
   
-  XtX = Xresult.t() * Xresult;
+  XZm.submat(0, 0, p-1, p-1) = Xtemp_b.t() * X;
+  XZm.submat(0, p, p-1, p+pg-1) = Xtemp_bg.t() * Z;
+  XZm.submat(p, 0, p+pg-1, p-1) = arma::trans(XZm.submat(0, p, p-1, p+pg-1));
+  XZm.submat(p, p, p+pg-1, p+pg-1) = Ztemp_g.t() * Z;
+  
+  //Rcpp::Rcout << "nh: \n" << XZm << endl;
+  //if(XZm.has_nan()){
+  //  Rcpp::stop("XZm has nans!\n");
+  //}
 }
 
-arma::mat NodeDataB::neghess_logfullcondit(const arma::vec& x){
+arma::mat NodeDataBLG::neghess_logfullcondit(const arma::vec& x){
   set_XtDX(x);
-  return XtX + Vw_i;
+  return XZm + Vw_i;
 }
 
-arma::vec NodeDataB::compute_dens_and_grad(double& xtarget, const arma::mat& x){
+arma::vec NodeDataBLG::compute_dens_and_grad(double& xtarget, const arma::mat& x){
   xtarget = logfullcondit(x);
   return gradient_logfullcondit(x);
 }
 
-arma::mat NodeDataB::compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad, const arma::mat& x){
+arma::mat NodeDataBLG::compute_dens_grad_neghess(double& xtarget, arma::vec& xgrad, const arma::mat& x){
   xtarget = logfullcondit(x);
   xgrad = gradient_logfullcondit(x);
   return neghess_logfullcondit(x);
